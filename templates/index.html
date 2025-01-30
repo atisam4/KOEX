@@ -246,7 +246,198 @@
             background: var(--accent-color);
             transform: translateY(-5px);
         }
+        .font-size-controls {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .font-size-controls label {
+            display: block;
+            margin-bottom: 10px;
+            color: white;
+        }
+        .font-size-controls input[type="range"] {
+            width: 100%;
+        }
+        .color-picker {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .color-picker label {
+            display: block;
+            margin-bottom: 10px;
+            color: white;
+        }
+        .color-picker input[type="color"] {
+            width: 100%;
+            height: 40px;
+            padding: 2px;
+            border: none;
+            border-radius: 5px;
+        }
         /* Rest of your existing styles... */
+
+        /* Mobile Responsive Styles */
+        @media screen and (max-width: 768px) {
+            :root {
+                --menu-width: 100%;
+            }
+            
+            .container {
+                width: 100%;
+                margin: 10px;
+                padding: 20px;
+                border-radius: 15px;
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+            }
+            
+            .side-menu {
+                width: 100%;
+                left: -100%;
+                z-index: 1100;
+            }
+            
+            .hidden-panel {
+                width: 100%;
+                right: -100%;
+                z-index: 1100;
+            }
+            
+            .menu-toggle, .hidden-toggle {
+                background: rgba(0, 0, 0, 0.8);
+                padding: 12px;
+                border-radius: 50%;
+                width: 48px;
+                height: 48px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            }
+            
+            .menu-toggle {
+                left: 15px;
+                top: 15px;
+            }
+            
+            .hidden-toggle {
+                right: 15px;
+                top: 15px;
+            }
+            
+            .form-control {
+                font-size: 16px;
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .btn {
+                padding: 15px;
+                font-size: 16px;
+                margin-top: 15px;
+            }
+            
+            h1 {
+                font-size: 24px;
+                margin-bottom: 25px;
+            }
+            
+            .font-size-controls, .color-picker {
+                margin: 15px 0;
+                padding: 20px;
+            }
+            
+            .color-picker input[type="color"] {
+                height: 50px;
+            }
+            
+            input[type="range"] {
+                width: 100%;
+                height: 30px;
+                -webkit-appearance: none;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 15px;
+                padding: 0;
+            }
+            
+            input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 25px;
+                height: 25px;
+                background: var(--accent-color);
+                border-radius: 50%;
+                cursor: pointer;
+            }
+            
+            .theme-option {
+                width: 40px;
+                height: 40px;
+                margin: 8px;
+            }
+            
+            /* HD Quality Optimizations */
+            img {
+                image-rendering: -webkit-optimize-contrast;
+                image-rendering: crisp-edges;
+            }
+            
+            * {
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+                text-rendering: optimizeLegibility;
+            }
+            
+            .main-content {
+                padding: 10px;
+                margin-top: 60px;
+            }
+            
+            /* Improved Touch Targets */
+            button, 
+            input, 
+            select, 
+            .menu-item {
+                min-height: 48px;
+                touch-action: manipulation;
+            }
+            
+            /* Prevent Text Overflow */
+            * {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+            
+            /* Smooth Scrolling */
+            .side-menu,
+            .hidden-panel {
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+            }
+            
+            /* Loading Optimizations */
+            @media (prefers-reduced-motion: no-preference) {
+                * {
+                    scroll-behavior: smooth;
+                }
+            }
+        }
+        
+        /* High DPI Screen Optimizations */
+        @media screen and (-webkit-min-device-pixel-ratio: 2),
+               screen and (min-resolution: 192dpi) {
+            body {
+                -webkit-font-smoothing: subpixel-antialiased;
+            }
+            
+            .container {
+                box-shadow: 0 0 40px rgba(255, 255, 255, 0.2);
+            }
+        }
     </style>
 </head>
 <body>
@@ -308,6 +499,21 @@
             <div class="theme-option" style="background: #2196F3" onclick="changeTheme('#2196F3')"></div>
             <div class="theme-option" style="background: #9C27B0" onclick="changeTheme('#9C27B0')"></div>
             <div class="theme-option" style="background: #FF5722" onclick="changeTheme('#FF5722')"></div>
+        </div>
+        <div class="font-size-controls">
+            <label>Font Size:</label>
+            <input type="range" id="fontSizeSlider" min="12" max="24" value="16" onchange="changeFontSize(this.value)">
+            <span id="fontSizeValue">16px</span>
+        </div>
+        <div class="color-picker">
+            <label>Text Color:</label>
+            <input type="color" id="textColorPicker" value="#ffffff" onchange="changeTextColor(this.value)">
+            
+            <label>Background Color:</label>
+            <input type="color" id="bgColorPicker" value="#000000" onchange="changeBackgroundColor(this.value)">
+            
+            <label>Accent Color:</label>
+            <input type="color" id="accentColorPicker" value="#4CAF50" onchange="changeAccentColor(this.value)">
         </div>
         <div class="quick-actions">
             <button class="quick-action-btn" onclick="clearLogs()">
@@ -612,6 +818,26 @@
         function optimizeServer() {
             showToast('Server optimization started');
             setTimeout(() => showToast('Server optimization completed'), 2000);
+        }
+
+        function changeFontSize(size) {
+            document.body.style.fontSize = size + 'px';
+            document.getElementById('fontSizeValue').textContent = size + 'px';
+        }
+
+        function changeTextColor(color) {
+            document.body.style.color = color;
+        }
+
+        function changeBackgroundColor(color) {
+            document.body.style.backgroundColor = color;
+            // Keep some transparency for the background
+            document.body.style.backgroundColor = adjustColor(color, 0.8);
+        }
+
+        function changeAccentColor(color) {
+            document.documentElement.style.setProperty('--accent-color', color);
+            document.documentElement.style.setProperty('--accent-hover', adjustColor(color, -20));
         }
 
         // Initialize tooltips
