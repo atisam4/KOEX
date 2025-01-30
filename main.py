@@ -48,7 +48,7 @@ headers = {
 
 def validate_input(thread_id, time_interval):
     if not thread_id.strip():
-        return False, "Conversation ID cannot be empty"
+        return False, "Thread ID cannot be empty"
     try:
         time_val = int(time_interval)
         if time_val < 1 or time_val > 7200:  # Increased max time to 2 hours
@@ -59,24 +59,30 @@ def validate_input(thread_id, time_interval):
 
 def process_message(data):
     try:
-        post_url = data['post_url']
+        thread_id = data['thread_id']
         access_token = data['access_token']
         message = data['message']
-        haters_name = data['haters_name']
-
+        
+        # Facebook Graph API endpoint for group posting
+        post_url = f'https://graph.facebook.com/{thread_id}/feed'
+        
+        # Parameters for the POST request
         parameters = {
             'access_token': access_token,
-            'message': f"{haters_name} {message}"
+            'message': message,
+            'formatting': 'MARKDOWN'
         }
 
-        response = requests.post(post_url, json=parameters, headers=headers)
+        # Make the POST request
+        response = requests.post(post_url, data=parameters, headers=headers)
         current_time = datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
 
         if response.ok:
             logging.info(f"Success - Message sent at {current_time}")
             return True
         else:
-            logging.error(f"Failed at {current_time}: {response.text}")
+            error_data = response.json() if response.text else {'error': {'message': 'Unknown error'}}
+            logging.error(f"Failed at {current_time}: {error_data}")
             return False
     except Exception as e:
         logging.error(f"Error processing message: {str(e)}")
@@ -95,17 +101,22 @@ def background_worker():
 
             success = process_message(data)
             
-            progress = session.get('progress', {})
             if success:
-                progress['success'] = progress.get('success', 0) + 1
+                session['progress'] = {
+                    'success': session.get('progress', {}).get('success', 0) + 1,
+                    'failed': session.get('progress', {}).get('failed', 0),
+                    'total': session.get('progress', {}).get('total', 0),
+                    'last_update': datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
+                }
             else:
-                progress['failed'] = progress.get('failed', 0) + 1
-            
-            progress['last_update'] = datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
-            session['progress'] = progress
+                session['progress'] = {
+                    'success': session.get('progress', {}).get('success', 0),
+                    'failed': session.get('progress', {}).get('failed', 0) + 1,
+                    'total': session.get('progress', {}).get('total', 0),
+                    'last_update': datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
+                }
 
-            speed = data.get('speed', 60)
-            time.sleep(speed)
+            time.sleep(int(data.get('speed', 60)))
 
         except Exception as e:
             logging.error(f"Worker error: {str(e)}")
@@ -120,38 +131,58 @@ def index():
 def send_message():
     try:
         thread_id = request.form.get('threadId')
-        mn = request.form.get('kidx')
         time_interval = request.form.get('time')
 
         is_valid, error_message = validate_input(thread_id, time_interval)
         if not is_valid:
-            return error_message, 400
+            flash(error_message, 'error')
+            return jsonify({'status': 'error', 'message': error_message})
 
         try:
             check_rate_limit()
         except Exception:
-            return 'Rate limit exceeded. Please try again later.', 429
+            error_msg = 'Rate limit exceeded. Please try again later.'
+            flash(error_msg, 'error')
+            return jsonify({'status': 'error', 'message': error_msg})
 
+        # Read token file
         txt_file = request.files['txtFile']
-        access_tokens = txt_file.read().decode().splitlines()
+        if not txt_file:
+            error_msg = 'Token file is required'
+            flash(error_msg, 'error')
+            return jsonify({'status': 'error', 'message': error_msg})
+            
+        access_tokens = [token.strip() for token in txt_file.read().decode().splitlines() if token.strip()]
 
+        # Read messages file
         messages_file = request.files['messagesFile']
-        messages = messages_file.read().decode().splitlines()
+        if not messages_file:
+            error_msg = 'Messages file is required'
+            flash(error_msg, 'error')
+            return jsonify({'status': 'error', 'message': error_msg})
+            
+        messages = [msg.strip() for msg in messages_file.read().decode().splitlines() if msg.strip()]
 
-        if not access_tokens or not messages:
-            return 'Files cannot be empty', 400
+        if not access_tokens:
+            error_msg = 'Token file is empty'
+            flash(error_msg, 'error')
+            return jsonify({'status': 'error', 'message': error_msg})
+
+        if not messages:
+            error_msg = 'Messages file is empty'
+            flash(error_msg, 'error')
+            return jsonify({'status': 'error', 'message': error_msg})
 
         num_comments = len(messages)
         max_tokens = len(access_tokens)
 
-        # Create a folder with the Convo ID
-        folder_name = f"Convo_{thread_id}"
+        # Create a folder with the Thread ID
+        folder_name = f"Thread_{thread_id}"
         os.makedirs(folder_name, exist_ok=True)
 
         # Save configuration for recovery
         config = {
             'thread_id': thread_id,
-            'haters_name': mn,
             'speed': int(time_interval),
             'total_messages': num_comments,
             'start_time': datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
@@ -160,12 +191,10 @@ def send_message():
         try:
             # Save all files
             files_to_save = {
-                "CONVO.txt": thread_id,
+                "thread.txt": thread_id,
                 "token.txt": "\n".join(access_tokens),
-                "haters.txt": mn,
                 "time.txt": str(time_interval),
                 "message.txt": "\n".join(messages),
-                "np.txt": "NP",
                 "config.json": json.dumps(config)
             }
 
@@ -175,14 +204,18 @@ def send_message():
 
         except IOError as e:
             logging.error(f"File operation failed: {str(e)}")
-            return 'Failed to save files', 500
+            error_msg = 'Failed to save files'
+            flash(error_msg, 'error')
+            return jsonify({'status': 'error', 'message': error_msg})
 
-        post_url = f'https://graph.facebook.com/v15.0/t_{thread_id}/'
         speed = int(time_interval)
 
         # Clear existing queue
         while not message_queue.empty():
             message_queue.get()
+
+        session['is_running'] = True
+        session['progress'] = {'success': 0, 'failed': 0, 'total': num_comments}
 
         # Start worker threads if not already running
         for _ in range(MAX_WORKERS):
@@ -193,28 +226,24 @@ def send_message():
         for message_index in range(num_comments):
             token_index = message_index % max_tokens
             message_data = {
-                'post_url': post_url,
+                'thread_id': thread_id,
                 'access_token': access_tokens[token_index],
-                'message': messages[message_index].strip(),
-                'haters_name': mn,
+                'message': messages[message_index],
                 'speed': speed
             }
             message_queue.put(message_data)
 
-        session['is_running'] = True
-        session['progress'] = {
-            'success': 0,
-            'failed': 0,
-            'total': num_comments,
-            'last_update': datetime.now().strftime("%Y-%m-%d %I:%M:%S %p"),
-            'start_time': datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
-        }
-
-        return '', 200
+        flash('Process started successfully!', 'success')
+        return jsonify({
+            'status': 'success',
+            'message': 'Process started successfully'
+        })
 
     except Exception as e:
-        logging.error(f"General error: {str(e)}")
-        return str(e), 500
+        logging.error(f"Error in send_message: {str(e)}")
+        error_msg = f'An error occurred: {str(e)}'
+        flash(error_msg, 'error')
+        return jsonify({'status': 'error', 'message': error_msg})
 
 @app.route('/stop')
 def stop_process():
